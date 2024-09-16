@@ -2,75 +2,111 @@ import tkinter as tk
 from threading import Thread, Lock
 import time
 
-# Мьютекс для синхронизации доступа к общему ресурсу
+# Создаем мьютекс для синхронизации доступа к текстовому полю
 mutex = Lock()
 
-# Общий разделяемый ресурс
-shared_resource = "text"
+# Функция для удаления слов, начинающихся с определенных букв
+def delete_words_starting_with(text, letters):
+    words = text.split()
+    filtered_words = [word for word in words if not word.lower().startswith(tuple(letters))]
+    return ' '.join(filtered_words)
 
-# Функция для вывода логов в текстовое поле
+# Функция для изменения порядка символов на обратный
+def reverse_text(text):
+    return text[::-1]
+
+# Функция для подсчета количества слов
+def count_words(text):
+    words = text.split()
+    return len(words)
+
+# Функция для логирования сообщений в текстовое поле
 def log_message(message):
     log_box.insert(tk.END, message + '\n')
-    log_box.see(tk.END)  # Автопрокрутка до конца
+    log_box.see(tk.END)  # Прокрутка к последней записи
 
-# Функция для писателей
-def writer(writer_id):
-    global shared_resource
+# Функция для первого потока писателя (запись данных - удаление слов по букве)
+def writer1():
     while True:
         mutex.acquire()
         try:
-            # Писатель записывает данные в общий ресурс
-            shared_resource = f"Данные от писателя {writer_id}"
-            text_writer[writer_id].config(text=shared_resource)
-            log_message(f"Писатель {writer_id} записал: {shared_resource}")
+            text = entry.get()
+            letters = entry_letters.get().split(",")
+            if text:
+                result = delete_words_starting_with(text, letters)
+                entry.delete(0, tk.END)
+                entry.insert(0, result)
+                log_message("Писатель 1 удалил слова, начинающиеся с указанных букв.")
+                time.sleep(1)
         finally:
             mutex.release()
-        time.sleep(2)  # Имитация паузы
+        time.sleep(5)  # Задержка для симуляции работы
 
-# Функция для читателей
-def reader(reader_id):
-    global shared_resource
+# Функция для второго потока писателя (запись данных - обратный порядок)
+def writer2():
     while True:
         mutex.acquire()
         try:
-            # Читатель читает данные из общего ресурса
-            read_data = shared_resource
-            text_reader[reader_id].config(text=read_data)
-            log_message(f"Читатель {reader_id} прочитал: {read_data}")
-            # После прочтения данные удаляются
-            shared_resource = ""
+            text = entry.get()
+            if text:
+                result = reverse_text(text)
+                entry.delete(0, tk.END)
+                entry.insert(0, result)
+                log_message("Писатель 2 изменил порядок символов на обратный.")
+                time.sleep(1)
         finally:
             mutex.release()
-        time.sleep(2)  # Имитация паузы
+        time.sleep(7)  # Задержка для симуляции работы
 
-# Создание потоков для писателей и читателей
+# Функция для первого потока читателя (чтение и удаление данных)
+def reader1():
+    while True:
+        mutex.acquire()
+        try:
+            text = entry.get()
+            if text:
+                log_message(f"Читатель 1 прочитал текст: {text}")
+                time.sleep(1)
+        finally:
+            mutex.release()
+        time.sleep(10)  # Задержка для симуляции работы
+
+# Функция для второго потока читателя (чтение данных и подсчет слов)
+def reader2():
+    while True:
+        mutex.acquire()
+        try:
+            text = entry.get()
+            if text:
+                word_count = count_words(text)
+                log_message(f"Читатель 2 прочитал текст и подсчитал количество слов: {word_count}")
+                time.sleep(1)
+        finally:
+            mutex.release()
+        time.sleep(6)  # Задержка для симуляции работы
+
+# Функция для запуска всех потоков
 def start_threads():
-    for i in range(4):
-        writer_thread = Thread(target=writer, args=(i,))
-        writer_thread.start()
-        reader_thread = Thread(target=reader, args=(i,))
-        reader_thread.start()
+    Thread(target=writer1).start()
+    Thread(target=writer2).start()
+    Thread(target=reader2).start()
+    Thread(target=reader1).start()
 
-# Создание окна
+# Создаем интерфейс приложения
 root = tk.Tk()
-root.title("Писатели и Читатели с мьютексом")
-root.geometry("600x600")
+root.title("Лабораторная работа по потокам")
+root.geometry("600x500")
 
-# Метки для отображения данных писателей
-text_writer = []
-for i in range(2):
-    label = tk.Label(root, text=f"Писатель {i}: нет данных", width=50, relief="solid")
-    label.pack(pady=5)
-    text_writer.append(label)
+# Текстовое поле для основного ввода
+entry = tk.Entry(root, width=50)
+entry.pack(pady=10)
 
-# Метки для отображения данных читателей
-text_reader = []
-for i in range(2):
-    label = tk.Label(root, text=f"Читатель {i}: нет данных", width=50, relief="solid")
-    label.pack(pady=5)
-    text_reader.append(label)
+# Поле для ввода букв
+entry_letters = tk.Entry(root, width=50)
+entry_letters.insert(0, "a,b")  # Пример, как вводить буквы
+entry_letters.pack(pady=10)
 
-# Логгер для отображения логов в окне
+# Текстовое поле для вывода логов
 log_box = tk.Text(root, height=10, width=70, state=tk.NORMAL)
 log_box.pack(pady=10)
 
