@@ -1,0 +1,184 @@
+import tkinter as tk
+from threading import Thread
+import time
+import random
+import queue
+
+# Параметры трассы по умолчанию
+track_length = 20  # Длина трассы
+num_runners = 5  # Количество бегунов
+obstacle_chance = 0.5  # Шанс появления препятствия
+obstacle_delay = 1.5  # Задержка при препятствии
+
+# Очередь для безопасной передачи данных из потоков в главный поток
+event_queue = queue.Queue()
+
+log_window = None
+log_box = None
+
+# Функция для добавления сообщений в окно логов
+def log_message(message):
+    global log_window, log_box
+    if log_window is None or not log_window.winfo_exists():
+        return  # Окно логов закрыто, не записываем ничего
+    if log_box and message.strip():  # Исключаем пустые сообщения
+        log_box.insert(tk.END, message + "\n")
+        log_box.see(tk.END)  # Автопрокрутка
+
+# Функция для создания окна логов
+def create_log_window():
+    global log_window, log_box
+    if log_window is None or not log_window.winfo_exists():
+        log_window = tk.Toplevel()
+        log_window.title("Логи")
+        log_box = tk.Text(log_window, height=20, width=60, state=tk.NORMAL)
+        log_box.pack(pady=10)
+
+# Функция, которая моделирует движение бегуна
+def runner(runner_id, config):
+    track_len, obs_delay = config['track_length'], config['obstacle_delay']
+    for position in range(track_len):
+        if track[position][runner_id] == 1:
+            event_queue.put((runner_id, position, "obstacle"))
+            log_message(f"Бегун {runner_id+1} встретил препятствие на позиции {position}. Задержка {obs_delay} секунд.")
+            time.sleep(obs_delay)  # Задержка при препятствии
+        else:
+            event_queue.put((runner_id, position, "move"))
+        time.sleep(0.5)  # Задержка между шагами
+
+    event_queue.put((runner_id, track_len - 1, "finish"))
+    log_message(f"Бегун {runner_id+1} финишировал!")
+
+# Функция для создания трассы
+def create_track(track_len, num_runners, obs_chance):
+    return [[random.choice([0, 1]) if random.random() < obs_chance else 0 for _ in range(num_runners)] for _ in range(track_len)]
+
+# Функция для запуска гонки
+def start_race(config):
+    global track
+    track = create_track(config['track_length'], config['num_runners'], config['obstacle_chance'])
+
+    for runner_id in range(config['num_runners']):
+        t = Thread(target=runner, args=(runner_id, config))
+        t.start()
+
+    root.after(100, update_interface)  # Периодически обновляем интерфейс
+
+# Функция для обновления интерфейса
+def update_interface():
+    try:
+        while True:
+            runner_id, position, event_type = event_queue.get_nowait()
+            for i in range(config['track_length']):
+                if i == position:
+                    if i == config['track_length'] - 1:  # Финишная линия
+                        labels[i][runner_id].config(text="🏁", bg="green")
+                    elif event_type == "obstacle":
+                        labels[i][runner_id].config(text="🟥", bg="red")  # Препятствие
+                    elif event_type == "move":
+                        labels[i][runner_id].config(text="🏃", bg="white")  # Бегун
+                else:
+                    labels[i][runner_id].config(text="⬜", bg="white")  # Пустая клетка
+    except queue.Empty:
+        pass
+    root.after(100, update_interface)  # Продолжаем обновлять интерфейс
+
+# Функция для построения интерфейса трассы
+def build_track_interface(root, track_len, num_runners):
+    labels = []
+    for i in range(track_len):
+        row = []
+        for j in range(num_runners):
+            lbl = tk.Label(root, text="⬜", font=("Helvetica", 10), width=2, height=1, bg="white", relief="solid")
+            lbl.grid(row=i, column=j, padx=1, pady=1)
+            row.append(lbl)
+        labels.append(row)
+    return labels
+
+# Окно для конфигурации
+def config_window():
+    config_win = tk.Toplevel()
+    config_win.title("Конфигурация")
+
+    def apply_config():
+        try:
+            config['track_length'] = int(track_length_entry.get())
+            config['num_runners'] = int(num_runners_entry.get())
+            config['obstacle_chance'] = float(obstacle_chance_entry.get())
+            config['obstacle_delay'] = float(obstacle_delay_entry.get())
+            log_message("Конфигурация обновлена.")
+            rebuild_interface(config['track_length'], config['num_runners'])  # Обновляем интерфейс
+        except ValueError:
+            log_message("Ошибка: введите корректные значения.")
+
+    tk.Label(config_win, text="Длина трассы").pack()
+    track_length_entry = tk.Entry(config_win)
+    track_length_entry.insert(0, str(config['track_length']))
+    track_length_entry.pack()
+
+    tk.Label(config_win, text="Количество бегунов").pack()
+    num_runners_entry = tk.Entry(config_win)
+    num_runners_entry.insert(0, str(config['num_runners']))
+    num_runners_entry.pack()
+
+    tk.Label(config_win, text="Шанс препятствия (0-1)").pack()
+    obstacle_chance_entry = tk.Entry(config_win)
+    obstacle_chance_entry.insert(0, str(config['obstacle_chance']))
+    obstacle_chance_entry.pack()
+
+    tk.Label(config_win, text="Задержка на препятствии (сек)").pack()
+    obstacle_delay_entry = tk.Entry(config_win)
+    obstacle_delay_entry.insert(0, str(config['obstacle_delay']))
+    obstacle_delay_entry.pack()
+
+    apply_button = tk.Button(config_win, text="Применить", command=apply_config)
+    apply_button.pack(pady=10)
+
+# Функция для пересоздания интерфейса трассы
+def rebuild_interface(track_len, num_runners):
+    global labels
+    for widget in root.grid_slaves():
+        widget.destroy()  # Удаляем все виджеты
+    labels = build_track_interface(root, track_len, num_runners)
+    start_button = tk.Button(root, text="Начать гонку", command=lambda: start_race(config))
+    start_button.grid(row=track_len, columnspan=num_runners, pady=20)
+
+    log_button = tk.Button(root, text="Показать логи", command=create_log_window)
+    log_button.grid(row=track_len + 1, columnspan=num_runners, pady=10)
+
+    config_button = tk.Button(root, text="Конфигурация", command=config_window)
+    config_button.grid(row=track_len + 2, columnspan=num_runners, pady=10)
+
+# Основное окно приложения
+def main_window():
+    global root, labels, config
+    config = {
+        'track_length': track_length,
+        'num_runners': num_runners,
+        'obstacle_chance': obstacle_chance,
+        'obstacle_delay': obstacle_delay
+    }
+
+    root = tk.Tk()
+    root.title("Бег с препятствиями")
+    root.geometry("150x700")
+
+    # Сетка для отображения трассы
+    labels = build_track_interface(root, config['track_length'], config['num_runners'])
+
+    # Кнопка запуска гонки
+    start_button = tk.Button(root, text="Начать гонку", command=lambda: start_race(config))
+    start_button.grid(row=config['track_length'], columnspan=config['num_runners'], pady=20)
+
+    # Кнопка для открытия окна логов
+    log_button = tk.Button(root, text="Показать логи", command=create_log_window)
+    log_button.grid(row=config['track_length'] + 1, columnspan=config['num_runners'], pady=10)
+
+    # Кнопка для конфигурации
+    config_button = tk.Button(root, text="Конфигурация", command=config_window)
+    config_button.grid(row=config['track_length'] + 2, columnspan=config['num_runners'], pady=10)
+
+    root.mainloop()
+
+if __name__ == "__main__":
+    main_window()
