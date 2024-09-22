@@ -15,6 +15,7 @@ event_queue = queue.Queue()
 
 log_window = None
 log_box = None
+config_win = None
 
 # Функция для добавления сообщений в окно логов
 def log_message(message):
@@ -51,7 +52,11 @@ def runner(runner_id, config):
 
 # Функция для создания трассы
 def create_track(track_len, num_runners, obs_chance):
-    return [[random.choice([0, 1]) if random.random() < obs_chance else 0 for _ in range(num_runners)] for _ in range(track_len)]
+    track = [[random.choice([0, 1]) if random.random() < obs_chance else 0 for _ in range(num_runners)] for _ in range(track_len)]
+    log_message("Сгенерированный трек:")
+    for row in track:
+        log_message(" ".join('X' if cell == 1 else '.' for cell in row))
+    return track
 
 # Функция для запуска гонки
 def start_race(config):
@@ -97,42 +102,45 @@ def build_track_interface(root, track_len, num_runners):
 
 # Окно для конфигурации
 def config_window():
-    config_win = tk.Toplevel()
-    config_win.title("Конфигурация")
+    global config_win
+    if config_win is None or not config_win.winfo_exists():
+        config_win = tk.Toplevel()
+        config_win.title("Конфигурация")
+        config_win.geometry("200x200")
 
-    def apply_config():
-        try:
-            config['track_length'] = int(track_length_entry.get())
-            config['num_runners'] = int(num_runners_entry.get())
-            config['obstacle_chance'] = float(obstacle_chance_entry.get())
-            config['obstacle_delay'] = float(obstacle_delay_entry.get())
-            log_message("Конфигурация обновлена.")
-            rebuild_interface(config['track_length'], config['num_runners'])  # Обновляем интерфейс
-        except ValueError:
-            log_message("Ошибка: введите корректные значения.")
+        def apply_config():
+            try:
+                config['track_length'] = int(track_length_entry.get())
+                config['num_runners'] = int(num_runners_entry.get())
+                config['obstacle_chance'] = float(obstacle_chance_entry.get())
+                config['obstacle_delay'] = float(obstacle_delay_entry.get())
+                log_message("Конфигурация обновлена.")
+                rebuild_interface(config['track_length'], config['num_runners'])  # Обновляем интерфейс
+            except ValueError:
+                log_message("Ошибка: введите корректные значения.")
 
-    tk.Label(config_win, text="Длина трассы").pack()
-    track_length_entry = tk.Entry(config_win)
-    track_length_entry.insert(0, str(config['track_length']))
-    track_length_entry.pack()
+        tk.Label(config_win, text="Длина трассы").pack()
+        track_length_entry = tk.Entry(config_win)
+        track_length_entry.insert(0, str(config['track_length']))
+        track_length_entry.pack()
 
-    tk.Label(config_win, text="Количество бегунов").pack()
-    num_runners_entry = tk.Entry(config_win)
-    num_runners_entry.insert(0, str(config['num_runners']))
-    num_runners_entry.pack()
+        tk.Label(config_win, text="Количество бегунов").pack()
+        num_runners_entry = tk.Entry(config_win)
+        num_runners_entry.insert(0, str(config['num_runners']))
+        num_runners_entry.pack()
 
-    tk.Label(config_win, text="Шанс препятствия (0-1)").pack()
-    obstacle_chance_entry = tk.Entry(config_win)
-    obstacle_chance_entry.insert(0, str(config['obstacle_chance']))
-    obstacle_chance_entry.pack()
+        tk.Label(config_win, text="Шанс препятствия (0-1)").pack()
+        obstacle_chance_entry = tk.Entry(config_win)
+        obstacle_chance_entry.insert(0, str(config['obstacle_chance']))
+        obstacle_chance_entry.pack()
 
-    tk.Label(config_win, text="Задержка на препятствии (сек)").pack()
-    obstacle_delay_entry = tk.Entry(config_win)
-    obstacle_delay_entry.insert(0, str(config['obstacle_delay']))
-    obstacle_delay_entry.pack()
+        tk.Label(config_win, text="Задержка на препятствии (сек)").pack()
+        obstacle_delay_entry = tk.Entry(config_win)
+        obstacle_delay_entry.insert(0, str(config['obstacle_delay']))
+        obstacle_delay_entry.pack()
 
-    apply_button = tk.Button(config_win, text="Применить", command=apply_config)
-    apply_button.pack(pady=10)
+        apply_button = tk.Button(config_win, text="Применить", command=apply_config)
+        apply_button.pack(pady=10)
 
 # Функция для пересоздания интерфейса трассы
 def rebuild_interface(track_len, num_runners):
