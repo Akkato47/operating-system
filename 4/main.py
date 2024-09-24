@@ -2,30 +2,24 @@ import tkinter as tk
 from threading import Thread, Lock
 import time
 
-# Создаем мьютекс для синхронизации доступа к текстовому полю
 mutex = Lock()
 
-# Функция для удаления слов, начинающихся с определенных букв
 def delete_words_starting_with(text, letters):
     words = text.split()
     filtered_words = [word for word in words if not word.lower().startswith(tuple(letters))]
     return ' '.join(filtered_words)
 
-# Функция для изменения порядка символов на обратный
 def reverse_text(text):
     return text[::-1]
 
-# Функция для подсчета количества слов
 def count_words(text):
     words = text.split()
     return len(words)
 
-# Функция для логирования сообщений в текстовое поле
 def log_message(message):
     log_box.insert(tk.END, message + '\n')
-    log_box.see(tk.END)  # Прокрутка к последней записи
+    log_box.see(tk.END)  
 
-# Функция для первого потока писателя (запись данных - удаление слов по букве)
 def writer1():
     while True:
         mutex.acquire()
@@ -40,9 +34,8 @@ def writer1():
                 time.sleep(1)
         finally:
             mutex.release()
-        time.sleep(5)  # Задержка для симуляции работы
+        time.sleep(5)
 
-# Функция для второго потока писателя (запись данных - обратный порядок)
 def writer2():
     while True:
         mutex.acquire()
@@ -56,9 +49,8 @@ def writer2():
                 time.sleep(1)
         finally:
             mutex.release()
-        time.sleep(7)  # Задержка для симуляции работы
+        time.sleep(7)
 
-# Функция для первого потока читателя (чтение и удаление данных)
 def reader1():
     while True:
         mutex.acquire()
@@ -69,9 +61,8 @@ def reader1():
                 time.sleep(1)
         finally:
             mutex.release()
-        time.sleep(10)  # Задержка для симуляции работы
+        time.sleep(10)
 
-# Функция для второго потока читателя (чтение данных и подсчет слов)
 def reader2():
     while True:
         mutex.acquire()
@@ -83,36 +74,29 @@ def reader2():
                 time.sleep(1)
         finally:
             mutex.release()
-        time.sleep(6)  # Задержка для симуляции работы
+        time.sleep(6)
 
-# Функция для запуска всех потоков
 def start_threads():
     Thread(target=writer1).start()
     Thread(target=writer2).start()
     Thread(target=reader2).start()
     Thread(target=reader1).start()
 
-# Создаем интерфейс приложения
 root = tk.Tk()
 root.title("Лабораторная работа по потокам")
 root.geometry("600x500")
 
-# Текстовое поле для основного ввода
 entry = tk.Entry(root, width=50)
 entry.pack(pady=10)
 
-# Поле для ввода букв
 entry_letters = tk.Entry(root, width=50)
-entry_letters.insert(0, "a,b")  # Пример, как вводить буквы
+entry_letters.insert(0, "a,b")
 entry_letters.pack(pady=10)
 
-# Текстовое поле для вывода логов
 log_box = tk.Text(root, height=10, width=70, state=tk.NORMAL)
 log_box.pack(pady=10)
 
-# Кнопка для запуска потоков
 start_button = tk.Button(root, text="Запустить потоки", command=start_threads)
 start_button.pack(pady=20)
 
-# Запуск основного цикла окна
 root.mainloop()
